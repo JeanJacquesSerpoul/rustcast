@@ -527,6 +527,18 @@ pub fn run() {
             if store.update(|l| downloads::migrate_names(l, &downloads_dir)) > 0 {
                 store.flush();
             }
+            let handle = app.handle();
+            let _ = app.asset_protocol_scope().allow_directory(&downloads_dir, true);
+            let local_files: Vec<std::path::PathBuf> = store.with(|l| {
+                l.episodes
+                    .values()
+                    .flatten()
+                    .filter_map(|e| e.local_path.as_ref().map(std::path::PathBuf::from))
+                    .collect()
+            });
+            for file in local_files {
+                downloads::allow_playback(handle, &file);
+            }
             app.manage(AppState {
                 store: store.clone(),
                 client,

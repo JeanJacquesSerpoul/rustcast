@@ -353,10 +353,28 @@ impl Player {
             return;
         }
         WANTS_PLAY.set(true);
+        // Un échec au préchargement (au démarrage par exemple) bloque play() :
+        // on recharge la source pour retenter réellement la lecture.
+        if media(|a| a.error().is_some()) {
+            self.buffering.set(true);
+            media(|a| a.load());
+        }
+        let app = self.app;
         media(|a| {
             if let Ok(promise) = a.play() {
                 spawn_local(async move {
-                    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                    if let Err(e) = wasm_bindgen_futures::JsFuture::from(promise).await {
+                        let name = js_sys::Reflect::get(&e, &JsValue::from_str("name"))
+                            .ok()
+                            .and_then(|n| n.as_string())
+                            .unwrap_or_default();
+                        // AbortError : lecture interrompue par un changement d'épisode.
+                        // NotSupportedError : déjà signalé par l'événement « error ».
+                        if name != "AbortError" && name != "NotSupportedError" {
+                            self.buffering.set(false);
+                            app.toast(app.tr("toast.play_error"), ToastKind::Error);
+                        }
+                    }
                 });
             }
         });

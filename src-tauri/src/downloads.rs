@@ -135,6 +135,20 @@ fn find_similar(base: &Path, episode_id: &str, claimed: &HashSet<PathBuf>) -> Op
         })
 }
 
+/// Autorise la lecture d'un fichier téléchargé par le protocole `asset`.
+///
+/// Tauri compare des chemins canoniques. Avec un dossier de profil redirigé, ou une
+/// application lancée dans un conteneur Windows (MSIX), un fichier peut se résoudre
+/// ailleurs que son dossier parent : on autorise donc aussi son emplacement réel.
+pub fn allow_playback(app: &AppHandle, file: &Path) {
+    let Ok(real) = std::fs::canonicalize(file) else {
+        return;
+    };
+    if let Some(dir) = real.parent() {
+        let _ = app.asset_protocol_scope().allow_directory(dir, true);
+    }
+}
+
 /// Supprime un dossier de podcast devenu vide.
 pub fn remove_empty_parent(file: &Path) {
     if let Some(dir) = file.parent() {
@@ -258,6 +272,7 @@ pub fn start(app: &AppHandle, episode_id: &str) -> Result<(), String> {
                         e.local_size = Some(size);
                     }
                 });
+                allow_playback(&app, &file);
                 let _ = app.emit(EVT_LIBRARY, ());
                 DownloadStatus::Done
             }
