@@ -7,6 +7,7 @@ Gestionnaire de podcasts de bureau en **Rust + Tauri 2 + Leptos 0.8**, bilingue 
 - Recherche Apple Podcasts, classements par pays, ajout direct d'une URL de flux RSS
 - Aperçu d'un podcast avant abonnement, actualisation automatique toutes les heures
 - Lecture en streaming ou hors ligne, reprise à la position exacte, vitesse 0,75× → 2,5×
+- Podcasts vidéo : aperçu dans la barre de lecture, grande vue et plein écran (double-clic ou touche F)
 - Téléchargements en tâche de fond (3 en parallèle) avec progression et annulation
 - File d'attente réorganisable (glisser-déposer), lecture enchaînée
 - Vue « En lecture » plein écran, notes d'épisode, touches multimédia du système

@@ -68,6 +68,7 @@ const STRINGS: &[(&str, &str, &str)] = &[
     // Épisodes
     ("ep.play", "Écouter", "Play"),
     ("ep.played", "Écouté", "Played"),
+    ("ep.video", "Vidéo", "Video"),
     ("ep.notes", "Notes d’épisode", "Episode notes"),
     // Menu
     ("menu.more", "Plus d’options", "More options"),
@@ -88,6 +89,7 @@ const STRINGS: &[(&str, &str, &str)] = &[
     ("player.speed", "Vitesse de lecture", "Playback speed"),
     ("player.expand", "Ouvrir le lecteur", "Open player"),
     ("player.collapse", "Réduire le lecteur", "Minimize player"),
+    ("player.fullscreen", "Plein écran (double-clic sur la vidéo)", "Full screen (double-click the video)"),
     ("player.loading", "Chargement…", "Loading…"),
     // Téléchargements
     ("dl.download", "Télécharger", "Download"),
@@ -144,6 +146,7 @@ const STRINGS: &[(&str, &str, &str)] = &[
     ("shortcut.play", "Lecture / pause", "Play / pause"),
     ("shortcut.skip", "Reculer / avancer", "Skip back / forward"),
     ("shortcut.search", "Rechercher des podcasts", "Search podcasts"),
+    ("shortcut.fullscreen", "Vidéo en plein écran", "Full-screen video"),
     ("shortcut.close", "Fermer la fenêtre ouverte", "Close the open panel"),
     ("kbd.space", "Espace", "Space"),
     ("kbd.esc", "Échap", "Esc"),

@@ -6,9 +6,36 @@ use wasm_bindgen::JsCast;
 use crate::components::common::{Artwork, Equalizer};
 use crate::components::episode::EpisodeMenu;
 use crate::icons::{Icon, SkipIcon};
-use crate::player::{player, Player};
+use crate::player::{self as engine, player, Player};
 use crate::state::{app, View};
 use crate::util::fmt_clock;
+
+/// Emplacement où s'affiche l'élément vidéo du lecteur ; il le rend au conteneur caché en disparaissant.
+#[component]
+fn VideoSurface(player: Player, #[prop(optional, into)] class: String, #[prop(default = true)] interactive: bool) -> impl IntoView {
+    let host = NodeRef::<leptos::html::Div>::new();
+    let attached = StoredValue::new(send_wrapper::SendWrapper::new(None::<web_sys::Element>));
+    host.on_load(move |el| {
+        let el: web_sys::Element = el.into();
+        engine::attach_video(&el);
+        attached.set_value(send_wrapper::SendWrapper::new(Some(el)));
+    });
+    on_cleanup(move || {
+        if let Some(wrapper) = attached.try_get_value() {
+            if let Some(el) = wrapper.take() {
+                engine::detach_video(&el);
+            }
+        }
+    });
+    view! {
+        <div
+            class=format!("video-surface {class}")
+            node_ref=host
+            on:click=move |_| if interactive { player.toggle() }
+            on:dblclick=move |_| if interactive { player.toggle_fullscreen() }
+        ></div>
+    }
+}
 
 const RATES: [f64; 9] = [0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5];
 
@@ -178,8 +205,20 @@ pub fn PlayerBar() -> impl IntoView {
                 view! {
                     <footer class="player-bar">
                         <div class="pb-left">
-                            <button class="pb-art" title=move || app.tr("player.expand") on:click=move |_| app.now_playing_open.set(true)>
-                                <Artwork src=ep.artwork() title=ep.podcast_title.clone() />
+                            <button
+                                class="pb-art"
+                                class:video=move || player.has_video.get()
+                                title=move || app.tr("player.expand")
+                                on:click=move |_| app.now_playing_open.set(true)
+                            >
+                                {
+                                    let (art, title) = (ep.artwork(), ep.podcast_title.clone());
+                                    move || if player.has_video.get() && !app.now_playing_open.get() {
+                                        view! { <VideoSurface player=player class="pb-video" interactive=false /> }.into_any()
+                                    } else {
+                                        view! { <Artwork src=art.clone() title=title.clone() /> }.into_any()
+                                    }
+                                }
                                 <span class="pb-art-hover"><Icon name="maximize" size=18 /></span>
                             </button>
                             <div class="pb-info">
@@ -237,11 +276,31 @@ pub fn NowPlaying() -> impl IntoView {
                         <button class="icon-btn np-close" title=move || app.tr("player.collapse") on:click=move |_| app.now_playing_open.set(false)>
                             <Icon name="chevron-down" size=26 />
                         </button>
-                        <div class="np-content">
+                        <div class="np-content" class:with-video=move || player.has_video.get()>
                             <div class="np-main">
-                                <div class="np-art" class:playing=move || player.playing.get()>
-                                    <Artwork src=art.clone() title=ep.podcast_title.clone() />
-                                </div>
+                                {
+                                    let (art, title) = (art.clone(), ep.podcast_title.clone());
+                                    move || if player.has_video.get() {
+                                        view! {
+                                            <div class="np-video-wrap">
+                                                <VideoSurface player=player class="np-video" />
+                                                <button
+                                                    class="icon-btn np-fullscreen"
+                                                    title=move || app.tr("player.fullscreen")
+                                                    on:click=move |_| player.toggle_fullscreen()
+                                                >
+                                                    <Icon name="maximize" size=18 />
+                                                </button>
+                                            </div>
+                                        }.into_any()
+                                    } else {
+                                        view! {
+                                            <div class="np-art" class:playing=move || player.playing.get()>
+                                                <Artwork src=art.clone() title=title.clone() />
+                                            </div>
+                                        }.into_any()
+                                    }
+                                }
                                 <button
                                     class="np-podcast link"
                                     on:click=move |_| app.navigate(View::Podcast(pid.clone()))
@@ -254,6 +313,15 @@ pub fn NowPlaying() -> impl IntoView {
                                 <div class="np-extras">
                                     <RateMenu player=player up=true />
                                     <Volume player=player />
+                                    <Show when=move || player.has_video.get()>
+                                        <button
+                                            class="icon-btn"
+                                            title=move || app.tr("player.fullscreen")
+                                            on:click=move |_| player.toggle_fullscreen()
+                                        >
+                                            <Icon name="maximize" size=19 />
+                                        </button>
+                                    </Show>
                                     <EpisodeMenu ep=ep.clone() up=true />
                                 </div>
                             </div>

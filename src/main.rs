@@ -51,6 +51,8 @@ fn App() -> impl IntoView {
             .map(|el| matches!(el.tag_name().as_str(), "INPUT" | "TEXTAREA" | "SELECT"))
             .unwrap_or(false);
         match ev.key().as_str() {
+            // En plein écran, Échap est géré par le navigateur pour en sortir.
+            "Escape" if player::is_fullscreen() => {}
             "Escape" => {
                 if app.modal_episode.get_untracked().is_some() {
                     app.modal_episode.set(None);
@@ -67,6 +69,7 @@ fn App() -> impl IntoView {
                 ev.prevent_default();
                 player.toggle();
             }
+            "f" | "F" if player.has_video.get_untracked() => player.toggle_fullscreen(),
             "ArrowLeft" => player.skip_back(),
             "ArrowRight" => player.skip_forward(),
             _ => {}

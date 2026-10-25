@@ -140,6 +140,7 @@ pub fn SettingsPage() -> impl IntoView {
                     <div><kbd>{move || app.tr("kbd.space")}</kbd><span>{move || app.tr("shortcut.play")}</span></div>
                     <div><kbd>"←"</kbd><kbd>"→"</kbd><span>{move || app.tr("shortcut.skip")}</span></div>
                     <div><kbd>"Ctrl"</kbd><kbd>"F"</kbd><span>{move || app.tr("shortcut.search")}</span></div>
+                    <div><kbd>"F"</kbd><span>{move || app.tr("shortcut.fullscreen")}</span></div>
                     <div><kbd>{move || app.tr("kbd.esc")}</kbd><span>{move || app.tr("shortcut.close")}</span></div>
                 </div>
             </section>

@@ -65,6 +65,12 @@ pub fn EpisodeRow(ep: EpisodeView, #[prop(default = false)] show_podcast: bool) 
                         <span class="dot">"•"</span>
                     })}
                     <span>{meta}</span>
+                    {ep.episode.is_video().then(|| view! {
+                        <span class="ep-badge">
+                            <Icon name="video" size=12 />
+                            {move || app.tr("ep.video")}
+                        </span>
+                    })}
                 </div>
                 <h3 class="ep-title">{ep.episode.title.clone()}</h3>
                 <p class="ep-summary">{ep.episode.summary.clone()}</p>
@@ -231,6 +237,7 @@ pub fn EpisodeModal() -> impl IntoView {
                                         <div class="modal-meta">
                                             {move || fmt_date(app.lang(), e.pub_date)}
                                             {e.duration.map(|d| format!(" · {}", fmt_duration(d)))}
+                                            {e.is_video().then(|| view! { " · " {move || app.tr("ep.video")} })}
                                             {move || size.map(|s| format!(" · {}", fmt_bytes_lang(app.lang(), s)))}
                                         </div>
                                         <div class="modal-actions">

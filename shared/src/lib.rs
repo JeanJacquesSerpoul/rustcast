@@ -59,6 +59,17 @@ pub struct Episode {
 }
 
 impl Episode {
+    /// Vrai pour un épisode vidéo, d'après le type MIME du flux ou, à défaut, l'extension.
+    pub fn is_video(&self) -> bool {
+        match self.mime.as_deref().map(str::to_ascii_lowercase) {
+            Some(m) if m.starts_with("video/") => return true,
+            Some(m) if m.starts_with("audio/") => return false,
+            _ => {}
+        }
+        let path = self.audio_url.split(['?', '#']).next().unwrap_or_default().to_ascii_lowercase();
+        [".mp4", ".m4v", ".mov", ".webm", ".mkv"].iter().any(|ext| path.ends_with(ext))
+    }
+
     pub fn progress_ratio(&self) -> f64 {
         match self.duration {
             Some(d) if d > 0 => (self.position / d as f64).clamp(0.0, 1.0),
@@ -202,3 +213,21 @@ pub struct ImportProgress {
 pub const EVT_LIBRARY: &str = "library-changed";
 pub const EVT_DOWNLOAD: &str = "download-progress";
 pub const EVT_IMPORT: &str = "import-progress";
+
+#[cfg(test)]
+mod tests {
+    use super::Episode;
+
+    fn ep(url: &str, mime: Option<&str>) -> Episode {
+        Episode { audio_url: url.into(), mime: mime.map(Into::into), ..Default::default() }
+    }
+
+    #[test]
+    fn detects_video() {
+        assert!(ep("https://a.com/e.mp3", Some("video/mp4")).is_video());
+        assert!(!ep("https://a.com/e.mp4", Some("audio/mp4")).is_video());
+        assert!(ep("https://a.com/e.M4V?token=1", None).is_video());
+        assert!(ep("https://a.com/e.mov", Some("application/octet-stream")).is_video());
+        assert!(!ep("https://a.com/e.mp3", None).is_video());
+    }
+}

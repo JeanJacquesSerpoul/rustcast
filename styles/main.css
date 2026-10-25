@@ -2287,6 +2287,96 @@ kbd {
   color: var(--text-3);
 }
 
+/* ─────────────────────────── Vidéo ─────────────────────────── */
+
+#media-parking {
+  position: fixed;
+  left: -10px;
+  top: -10px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.video-surface {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+.video-surface video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+video.media-element:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
+  background: #000;
+}
+.pb-art.video {
+  width: 107px;
+}
+.pb-video {
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  box-shadow: var(--shadow-art);
+}
+.np-content.with-video {
+  grid-template-columns: minmax(480px, 1.7fr) minmax(300px, 0.8fr);
+}
+.np-video-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 980px;
+}
+.np-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 22px;
+  box-shadow: 0 40px 90px -24px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+}
+.np-fullscreen {
+  position: absolute !important;
+  right: 14px;
+  bottom: 14px;
+  background: rgba(10, 10, 16, 0.6);
+  color: white;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.np-video-wrap:hover .np-fullscreen {
+  opacity: 1;
+}
+.np-content.with-video .np-podcast {
+  margin-top: 24px;
+}
+.ep-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: white;
+  background: var(--grad);
+}
+.chip.video {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--grad);
+  color: white;
+  border-color: transparent;
+}
+
 /* ─────────────────────────── OPML ─────────────────────────── */
 
 .empty-actions {

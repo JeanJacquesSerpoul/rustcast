@@ -164,6 +164,11 @@ fn PodcastContent(feed: FeedPreview, ui: Ui) -> impl IntoView {
         });
     };
 
+    // Podcast vidéo si la majorité des épisodes récents sont des vidéos.
+    let is_video_show = episodes.with_value(|eps| {
+        let recent: Vec<_> = eps.iter().take(20).collect();
+        !recent.is_empty() && recent.iter().filter(|e| e.episode.is_video()).count() * 2 > recent.len()
+    });
     let latest = episodes.with_value(|e| e.iter().find(|e| !e.episode.played).or(e.first()).cloned());
     let has_latest = latest.is_some();
     let play_latest = move |_| {
@@ -199,6 +204,12 @@ fn PodcastContent(feed: FeedPreview, ui: Ui) -> impl IntoView {
                 <Artwork src=p.artwork.clone() title=p.title.clone() class="hero-art" />
                 <div class="hero-info">
                     <div class="chips">
+                        {is_video_show.then(|| view! {
+                            <span class="chip video">
+                                <Icon name="video" size=12 />
+                                {move || app.tr("ep.video")}
+                            </span>
+                        })}
                         {p.categories.iter().take(3).map(|c| view! { <span class="chip">{c.clone()}</span> }).collect_view()}
                     </div>
                     <h1>{p.title.clone()}</h1>

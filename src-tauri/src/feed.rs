@@ -314,3 +314,17 @@ mod tests {
         assert_eq!(eps[0].size, Some(1234));
     }
 }
+
+#[cfg(test)]
+mod network_tests {
+    /// Test réseau : `cargo test -- --ignored`.
+    #[tokio::test]
+    #[ignore]
+    async fn parses_real_video_feed() {
+        let client = reqwest::Client::builder().user_agent(super::USER_AGENT).build().unwrap();
+        let (p, eps) = super::fetch(&client, "http://feeds.feedburner.com/TedtalksHD").await.unwrap();
+        let videos = eps.iter().filter(|e| e.is_video()).count();
+        println!("{} — {} épisodes dont {} vidéos ; 1er : {} ({:?})", p.title, eps.len(), videos, eps[0].audio_url, eps[0].mime);
+        assert!(videos > 0 && videos * 2 > eps.len());
+    }
+}
