@@ -69,3 +69,7 @@ cargo test -p rustcast -- --include-ignored
 - `styles/main.css` — design
 
 Les données sont stockées dans `%APPDATA%\com.rustcast.app` (bibliothèque `library.json` et dossier `downloads`).
+
+## Licence
+
+Distribué sous licence [MIT](LICENSE).
