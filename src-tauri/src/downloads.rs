@@ -1,6 +1,6 @@
 //! Téléchargement des épisodes en tâche de fond, avec progression et annulation.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -110,6 +110,31 @@ fn with_id_suffix(base: &Path, episode_id: &str) -> PathBuf {
     base.with_file_name(format!("{stem} ({}).{ext}", &episode_id[..6.min(episode_id.len())]))
 }
 
+/// Clé de comparaison insensible à la ponctuation et à la casse.
+fn name_key(stem: &str) -> String {
+    stem.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// Cherche dans le dossier visé un fichier nommé selon une règle antérieure
+/// (« 6 - 6 » au lieu de « 6-6 » par exemple) et qui n'appartient à aucun autre épisode.
+fn find_similar(base: &Path, episode_id: &str, claimed: &HashSet<PathBuf>) -> Option<PathBuf> {
+    let ext = base.extension()?;
+    let keys = [
+        name_key(&base.file_stem()?.to_string_lossy()),
+        name_key(&with_id_suffix(base, episode_id).file_stem()?.to_string_lossy()),
+    ];
+    std::fs::read_dir(base.parent()?)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| {
+            p.is_file()
+                && p.extension() == Some(ext)
+                && !claimed.contains(p)
+                && p.file_stem().is_some_and(|s| keys.contains(&name_key(&s.to_string_lossy())))
+        })
+}
+
 /// Supprime un dossier de podcast devenu vide.
 pub fn remove_empty_parent(file: &Path) {
     if let Some(dir) = file.parent() {
@@ -122,6 +147,12 @@ pub fn remove_empty_parent(file: &Path) {
 /// Renvoie le nombre d'épisodes dont le chemin a changé.
 pub fn migrate_names(lib: &mut Library, downloads_dir: &Path) -> usize {
     let titles: HashMap<String, String> = lib.podcasts.iter().map(|p| (p.id.clone(), p.title.clone())).collect();
+    let mut claimed: HashSet<PathBuf> = lib
+        .episodes
+        .values()
+        .flatten()
+        .filter_map(|e| e.local_path.as_ref().map(PathBuf::from))
+        .collect();
     let mut changed = 0;
     for ep in lib.episodes.values_mut().flatten() {
         let Some(current) = ep.local_path.as_ref().map(PathBuf::from) else {
@@ -148,12 +179,16 @@ pub fn migrate_names(lib: &mut Library, downloads_dir: &Path) -> usize {
         } else {
             // Fichier absent : une version plus récente l'a peut-être déjà renommé
             // pendant qu'une ancienne gardait l'ancien chemin en mémoire.
-            match [base.clone(), with_id_suffix(&base, &ep.id)].into_iter().find(|p| p.is_file()) {
+            let exact = [base.clone(), with_id_suffix(&base, &ep.id)]
+                .into_iter()
+                .find(|p| p.is_file() && !claimed.contains(p));
+            match exact.or_else(|| find_similar(&base, &ep.id, &claimed)) {
                 Some(found) => found,
                 None => continue,
             }
         };
         ep.local_path = Some(target.to_string_lossy().to_string());
+        claimed.insert(target);
         changed += 1;
     }
     changed
@@ -421,6 +456,28 @@ mod tests {
 
         assert_eq!(migrate_names(&mut lib, &dir), 1);
         assert_eq!(PathBuf::from(lib.episodes["p1"][0].local_path.clone().unwrap()), renamed);
+
+        // Fichier nommé selon une règle antérieure (« 6 - 6 » au lieu de « 6-6 »).
+        let older_rule = dir.join("Mon Podcast").join("Bonjour 6 - 6 - Fin.m4a");
+        std::fs::rename(&renamed, &older_rule).unwrap();
+        {
+            let ep = &mut lib.episodes.get_mut("p1").unwrap()[0];
+            ep.title = "Bonjour 6/6 : Fin".into();
+            ep.local_path = Some(dir.join("p1").join("abcdef0123456789.m4a").to_string_lossy().to_string());
+        }
+        assert_eq!(migrate_names(&mut lib, &dir), 1);
+        assert_eq!(PathBuf::from(lib.episodes["p1"][0].local_path.clone().unwrap()), older_rule);
+        std::fs::rename(&older_rule, &renamed).unwrap();
+
+        // Un fichier déjà utilisé par un autre épisode n'est jamais pris.
+        let mut other = episode("Autre", 0);
+        other.id = "zzz".into();
+        other.local_path = Some(renamed.to_string_lossy().to_string());
+        lib.episodes.get_mut("p1").unwrap()[0].title = "Bonjour".into();
+        lib.episodes.get_mut("p1").unwrap()[0].local_path = Some(dir.join("p1").join("abcdef0123456789.m4a").to_string_lossy().to_string());
+        lib.episodes.get_mut("p1").unwrap().push(other);
+        assert_eq!(migrate_names(&mut lib, &dir), 0);
+        lib.episodes.get_mut("p1").unwrap().pop();
 
         // Un fichier vraiment perdu est laissé tel quel.
         std::fs::remove_file(&renamed).unwrap();
