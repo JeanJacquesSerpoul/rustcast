@@ -34,7 +34,9 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
-$AppId = "com.rustcast.app"
+$AppId = "io.github.jeanjacquesserpoul.rustcast"
+# Identifiant des premières versions, encore nettoyé par -Purge.
+$LegacyAppId = "com.rustcast.app"
 $UninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RustCast"
 $StartMenuLink = Join-Path ([Environment]::GetFolderPath("Programs")) "RustCast.lnk"
 $DesktopLink = Join-Path ([Environment]::GetFolderPath("Desktop")) "RustCast.lnk"
@@ -88,7 +90,8 @@ if ($Uninstall) {
     if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Ok $InstallDir }
     if (Test-Path $UninstallKey) { Remove-Item $UninstallKey -Recurse -Force; Ok (T "Entrée « Applications installées » supprimée" "Removed from Installed apps") }
 
-    $dataDirs = @((Join-Path $env:APPDATA $AppId), (Join-Path $env:LOCALAPPDATA $AppId)) | Where-Object { Test-Path $_ }
+    $dataDirs = foreach ($id in @($AppId, $LegacyAppId)) { Join-Path $env:APPDATA $id; Join-Path $env:LOCALAPPDATA $id }
+    $dataDirs = @($dataDirs | Where-Object { Test-Path $_ })
     if ($Purge) {
         foreach ($dir in $dataDirs) { Remove-Item $dir -Recurse -Force; Ok "$(T 'Données supprimées' 'Data removed') : $dir" }
     } elseif ($dataDirs) {

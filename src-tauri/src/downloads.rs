@@ -101,6 +101,10 @@ fn unique_path(base: &Path, episode_id: &str) -> PathBuf {
     if !base.exists() && !base.with_extension("part").exists() {
         return base.to_path_buf();
     }
+    with_id_suffix(base, episode_id)
+}
+
+fn with_id_suffix(base: &Path, episode_id: &str) -> PathBuf {
     let stem = base.file_stem().unwrap_or_default().to_string_lossy();
     let ext = base.extension().unwrap_or_default().to_string_lossy();
     base.with_file_name(format!("{stem} ({}).{ext}", &episode_id[..6.min(episode_id.len())]))
@@ -114,33 +118,45 @@ pub fn remove_empty_parent(file: &Path) {
 }
 
 /// Renomme les téléchargements des anciennes versions (`<id podcast>/<id épisode>.mp3`)
-/// avec des noms lisibles. Renvoie le nombre de fichiers renommés.
+/// avec des noms lisibles, et retrouve ceux qu'une autre version a déjà renommés.
+/// Renvoie le nombre d'épisodes dont le chemin a changé.
 pub fn migrate_names(lib: &mut Library, downloads_dir: &Path) -> usize {
     let titles: HashMap<String, String> = lib.podcasts.iter().map(|p| (p.id.clone(), p.title.clone())).collect();
-    let mut renamed = 0;
+    let mut changed = 0;
     for ep in lib.episodes.values_mut().flatten() {
         let Some(current) = ep.local_path.as_ref().map(PathBuf::from) else {
             continue;
         };
         let is_legacy = current.file_stem().is_some_and(|s| s.to_string_lossy() == ep.id);
-        if !is_legacy || !current.exists() {
+        let exists = current.exists();
+        if exists && !is_legacy {
             continue;
         }
         let title = titles.get(&ep.podcast_id).map(String::as_str).unwrap_or_default();
-        // On garde l'extension réelle du fichier avant de vérifier que le nom est libre.
+        // On garde l'extension réelle du fichier avant de chercher ou réserver le nom.
         let mut base = target_path(downloads_dir, title, ep);
         if let Some(ext) = current.extension() {
             base.set_extension(ext);
         }
-        let target = unique_path(&base, &ep.id);
-        if std::fs::create_dir_all(target.parent().unwrap()).is_err() || std::fs::rename(&current, &target).is_err() {
-            continue;
-        }
-        remove_empty_parent(&current);
+        let target = if exists {
+            let target = unique_path(&base, &ep.id);
+            if std::fs::create_dir_all(target.parent().unwrap()).is_err() || std::fs::rename(&current, &target).is_err() {
+                continue;
+            }
+            remove_empty_parent(&current);
+            target
+        } else {
+            // Fichier absent : une version plus récente l'a peut-être déjà renommé
+            // pendant qu'une ancienne gardait l'ancien chemin en mémoire.
+            match [base.clone(), with_id_suffix(&base, &ep.id)].into_iter().find(|p| p.is_file()) {
+                Some(found) => found,
+                None => continue,
+            }
+        };
         ep.local_path = Some(target.to_string_lossy().to_string());
-        renamed += 1;
+        changed += 1;
     }
-    renamed
+    changed
 }
 
 fn emit(app: &AppHandle, p: &DownloadProgress) {
@@ -384,6 +400,31 @@ mod tests {
         assert_eq!(std::fs::read(&new_path).unwrap(), b"audio");
         assert!(!legacy_dir.exists(), "l'ancien dossier vide doit disparaître");
         // Une seconde passe ne fait rien.
+        assert_eq!(migrate_names(&mut lib, &dir), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn relinks_file_renamed_by_another_version() {
+        let dir = std::env::temp_dir().join(format!("rustcast-relink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let renamed = dir.join("Mon Podcast").join("Bonjour.m4a");
+        std::fs::create_dir_all(renamed.parent().unwrap()).unwrap();
+        std::fs::write(&renamed, b"audio").unwrap();
+
+        // La bibliothèque pointe encore vers l'ancien nom, qui n'existe plus.
+        let mut ep = episode("Bonjour", 0);
+        ep.local_path = Some(dir.join("p1").join("abcdef0123456789.m4a").to_string_lossy().to_string());
+        let mut lib = Library::default();
+        lib.podcasts.push(shared::Podcast { id: "p1".into(), title: "Mon Podcast".into(), ..Default::default() });
+        lib.episodes.insert("p1".into(), vec![ep]);
+
+        assert_eq!(migrate_names(&mut lib, &dir), 1);
+        assert_eq!(PathBuf::from(lib.episodes["p1"][0].local_path.clone().unwrap()), renamed);
+
+        // Un fichier vraiment perdu est laissé tel quel.
+        std::fs::remove_file(&renamed).unwrap();
+        lib.episodes.get_mut("p1").unwrap()[0].local_path = Some(dir.join("perdu.mp3").to_string_lossy().to_string());
         assert_eq!(migrate_names(&mut lib, &dir), 0);
         let _ = std::fs::remove_dir_all(&dir);
     }

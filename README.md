@@ -68,7 +68,7 @@ cargo test -p rustcast -- --include-ignored
 - `src/` — interface Leptos : pages, composants, lecteur audio, traductions (`i18n.rs`)
 - `styles/main.css` — design
 
-Les données sont stockées dans `%APPDATA%\com.rustcast.app` (bibliothèque `library.json` et dossier `downloads`).
+Les données sont stockées dans `%APPDATA%\io.github.jeanjacquesserpoul.rustcast` sous Windows et `~/.local/share/io.github.jeanjacquesserpoul.rustcast` sous Linux (bibliothèque `library.json` et dossier `downloads`). Les données des premières versions (`com.rustcast.app`) y sont déplacées automatiquement au lancement.
 
 ## Licence
 

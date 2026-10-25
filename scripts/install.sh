@@ -8,7 +8,9 @@
 
 set -euo pipefail
 
-APP_ID="com.rustcast.app"
+APP_ID="io.github.jeanjacquesserpoul.rustcast"
+# Identifiant des premières versions, encore nettoyé par --purge.
+LEGACY_APP_ID="com.rustcast.app"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 PREFIX="$HOME/.local"
@@ -81,6 +83,7 @@ BIN="$PREFIX/bin/rustcast"
 DESKTOP="$PREFIX/share/applications/rustcast.desktop"
 ICONS="$PREFIX/share/icons/hicolor"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/$APP_ID"
+LEGACY_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/$LEGACY_APP_ID"
 
 refresh_desktop() {
   command -v update-desktop-database >/dev/null 2>&1 && as_prefix update-desktop-database -q "$PREFIX/share/applications" 2>/dev/null || true
@@ -97,7 +100,9 @@ if [ "$UNINSTALL" = 1 ]; then
   done
   refresh_desktop
   if [ "$PURGE" = 1 ]; then
-    if [ -d "$DATA_DIR" ]; then rm -rf "$DATA_DIR" && ok "$(t "Données supprimées" "Data removed") : $DATA_DIR"; fi
+    for dir in "$DATA_DIR" "$LEGACY_DATA_DIR"; do
+      if [ -d "$dir" ]; then rm -rf "$dir" && ok "$(t "Données supprimées" "Data removed") : $dir"; fi
+    done
   elif [ -d "$DATA_DIR" ]; then
     info "$(t "Vos abonnements et téléchargements sont conservés dans" "Your subscriptions and downloads are kept in") $DATA_DIR"
     info "$(t "(relancez avec --purge pour les effacer)" "(run again with --purge to delete them)")"

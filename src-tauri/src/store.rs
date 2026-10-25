@@ -107,6 +107,62 @@ impl Library {
     }
 }
 
+impl Library {
+    /// Réécrit les chemins des fichiers téléchargés après un déplacement du dossier de données.
+    pub fn rebase_paths(&mut self, old: &Path, new: &Path) -> usize {
+        let mut count = 0;
+        for ep in self.episodes.values_mut().flatten() {
+            let Some(path) = ep.local_path.as_ref().map(PathBuf::from) else {
+                continue;
+            };
+            // Seuls les fichiers réellement déplacés changent de chemin.
+            if let Ok(rest) = path.strip_prefix(old) {
+                let moved = new.join(rest);
+                if moved.exists() {
+                    ep.local_path = Some(moved.to_string_lossy().to_string());
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+}
+
+/// Identifiant des premières versions, abandonné car le suffixe « .app » gêne sous macOS.
+pub const LEGACY_ID: &str = "com.rustcast.app";
+
+/// Déplace les données de l'ancien dossier vers le nouveau, sans rien écraser.
+/// Renvoie l'ancien dossier si des données ont été déplacées.
+pub fn migrate_data_dir(legacy: &Path, data_dir: &Path) -> Option<PathBuf> {
+    if !legacy.is_dir() || data_dir.join("library.json").exists() {
+        return None;
+    }
+    if !data_dir.exists() && std::fs::rename(legacy, data_dir).is_ok() {
+        return Some(legacy.to_path_buf());
+    }
+    std::fs::create_dir_all(data_dir).ok()?;
+    let mut moved = false;
+    for entry in std::fs::read_dir(legacy).ok()?.flatten() {
+        let target = data_dir.join(entry.file_name());
+        if !target.exists() && std::fs::rename(entry.path(), &target).is_ok() {
+            moved = true;
+        }
+    }
+    let _ = std::fs::remove_dir(legacy);
+    moved.then(|| legacy.to_path_buf())
+}
+
+/// Supprime le cache WebView de l'ancien identifiant, s'il ne contient rien d'autre.
+pub fn remove_legacy_webview_cache(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let only_cache = entries.flatten().all(|e| e.file_name() == "EBWebView");
+    if only_cache {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
 /// Bibliothèque partagée avec un indicateur de modification pour l'enregistrement différé.
 pub struct Store {
     pub lib: std::sync::Mutex<Library>,
@@ -150,5 +206,75 @@ impl Store {
                 self.dirty.store(true, Ordering::Release);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn library_with_download(path: &Path) -> Library {
+        let mut lib = Library::default();
+        let ep = Episode {
+            id: "e1".into(),
+            local_path: Some(path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        lib.episodes.insert("p1".into(), vec![ep]);
+        lib
+    }
+
+    fn setup(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!("rustcast-store-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let legacy = root.join(LEGACY_ID);
+        let file = legacy.join("downloads").join("Pod").join("ep.mp3");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"audio").unwrap();
+        library_with_download(&file).save(&legacy.join("library.json")).unwrap();
+        (root.clone(), legacy, root.join("io.github.test.rustcast"))
+    }
+
+    fn check(legacy: &Path, data_dir: &Path, moved: Option<PathBuf>) {
+        assert_eq!(moved.as_deref(), Some(legacy));
+        let store = Store::open(data_dir.to_path_buf());
+        assert_eq!(store.update(|l| l.rebase_paths(legacy, data_dir)), 1);
+        let path = store.with(|l| l.episode("e1").unwrap().local_path.clone().unwrap());
+        assert_eq!(PathBuf::from(&path), data_dir.join("downloads").join("Pod").join("ep.mp3"));
+        assert_eq!(std::fs::read(path).unwrap(), b"audio");
+        assert!(!legacy.exists());
+        // Une seconde migration ne fait rien.
+        assert_eq!(migrate_data_dir(legacy, data_dir), None);
+    }
+
+    #[test]
+    fn rebase_keeps_files_that_did_not_move() {
+        let (root, legacy, data_dir) = setup("partial");
+        let old_file = legacy.join("downloads").join("Pod").join("ep.mp3");
+        let mut lib = library_with_download(&old_file);
+        // Le dossier downloads est resté à l'ancien emplacement (fichier verrouillé par exemple).
+        std::fs::create_dir_all(&data_dir).unwrap();
+        assert_eq!(lib.rebase_paths(&legacy, &data_dir), 0);
+        assert_eq!(PathBuf::from(lib.episode("e1").unwrap().local_path.clone().unwrap()), old_file);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn moves_whole_legacy_dir() {
+        let (root, legacy, data_dir) = setup("whole");
+        let moved = migrate_data_dir(&legacy, &data_dir);
+        check(&legacy, &data_dir, moved);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn merges_into_existing_dir() {
+        let (root, legacy, data_dir) = setup("merge");
+        // Le système a déjà créé le nouveau dossier (cache WebView par exemple).
+        std::fs::create_dir_all(data_dir.join("EBWebView")).unwrap();
+        let moved = migrate_data_dir(&legacy, &data_dir);
+        check(&legacy, &data_dir, moved);
+        assert!(data_dir.join("EBWebView").exists());
+        let _ = std::fs::remove_dir_all(root);
     }
 }

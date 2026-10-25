@@ -510,7 +510,19 @@ pub fn run() {
                 .connect_timeout(Duration::from_secs(20))
                 .read_timeout(Duration::from_secs(60))
                 .build()?;
-            let store = Arc::new(Store::open(data_dir));
+            let legacy_dir = data_dir.with_file_name(store::LEGACY_ID);
+            let moved_from = store::migrate_data_dir(&legacy_dir, &data_dir);
+            if let Ok(local) = app.path().app_local_data_dir() {
+                let legacy_local = local.with_file_name(store::LEGACY_ID);
+                if legacy_local != legacy_dir {
+                    store::remove_legacy_webview_cache(&legacy_local);
+                }
+            }
+            let store = Arc::new(Store::open(data_dir.clone()));
+            if let Some(old) = moved_from {
+                store.update(|l| l.rebase_paths(&old, &data_dir));
+                store.flush();
+            }
             let downloads_dir = store.downloads_dir();
             if store.update(|l| downloads::migrate_names(l, &downloads_dir)) > 0 {
                 store.flush();
