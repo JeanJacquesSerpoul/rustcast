@@ -37,8 +37,18 @@ macro_rules! args {
     }};
 }
 
+/// Adresse de lecture d'un fichier local.
+///
+/// Sous Linux, le backend injecte l'adresse d'un serveur local : WebKitGTK ne sait pas lire
+/// les médias servis par le protocole `asset`.
 pub fn file_src(path: &str) -> String {
-    tauri_convert_file_src(path)
+    let media = js_sys::Reflect::get(&js_sys::global(), &JsValue::from_str("__RUSTCAST_MEDIA__"))
+        .ok()
+        .and_then(|v| v.as_string());
+    match media {
+        Some(base) => format!("{base}{}", js_sys::encode_uri_component(path)),
+        None => tauri_convert_file_src(path),
+    }
 }
 
 /// Écoute un événement Tauri ; la fermeture reste active pendant toute la vie de l'application.

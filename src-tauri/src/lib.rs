@@ -1,6 +1,8 @@
 mod downloads;
 mod feed;
 mod itunes;
+#[cfg(target_os = "linux")]
+mod media_server;
 mod opml;
 mod store;
 
@@ -496,10 +498,22 @@ async fn export_opml(app: AppHandle) -> Res<bool> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(target_os = "linux")]
+    let media = media_server::MediaServer::bind().ok();
+    #[cfg(target_os = "linux")]
+    let builder = match &media {
+        Some(server) => builder.plugin(
+            tauri::plugin::Builder::<tauri::Wry>::new("media-server")
+                .js_init_script(server.init_script())
+                .build(),
+        ),
+        None => builder,
+    };
+    builder
+        .setup(move |app| {
             let data_dir = app.path().app_data_dir()?;
             let client = reqwest::Client::builder()
                 .user_agent(feed::USER_AGENT)
@@ -538,6 +552,10 @@ pub fn run() {
             });
             for file in local_files {
                 downloads::allow_playback(handle, &file);
+            }
+            #[cfg(target_os = "linux")]
+            if let Some(server) = media {
+                server.spawn(handle.clone());
             }
             app.manage(AppState {
                 store: store.clone(),
