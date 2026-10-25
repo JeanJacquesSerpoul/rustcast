@@ -597,3 +597,20 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    /// Le tag Git, la page « À propos » et l'installateur reposent sur une version unique.
+    #[test]
+    fn versions_are_in_sync() {
+        let version = env!("CARGO_PKG_VERSION");
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(conf["version"], version, "tauri.conf.json");
+        for (name, manifest) in [
+            ("Cargo.toml (interface)", include_str!("../../Cargo.toml")),
+            ("shared/Cargo.toml", include_str!("../../shared/Cargo.toml")),
+        ] {
+            assert!(manifest.contains(&format!("version = \"{version}\"")), "{name}");
+        }
+    }
+}

@@ -1,5 +1,14 @@
 //! Formatage des durées, dates et tailles selon la langue.
 
+/// Version de l'application, reprise du Cargo.toml.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const REPO_URL: &str = "https://github.com/JeanJacquesSerpoul/rustcast";
+
+/// Page GitHub de la version installée.
+pub fn release_url() -> String {
+    format!("{REPO_URL}/releases/tag/v{VERSION}")
+}
+
 use shared::Lang;
 
 pub fn fmt_clock(secs: f64) -> String {

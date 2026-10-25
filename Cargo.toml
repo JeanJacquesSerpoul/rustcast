@@ -18,7 +18,7 @@ send_wrapper = "0.6"
 web-sys = { version = "0.3", features = [
   "HtmlVideoElement", "HtmlMediaElement", "HtmlInputElement", "HtmlElement", "Element",
   "Event", "KeyboardEvent", "MouseEvent", "Window", "Document", "DomRect", "Storage",
-  "TimeRanges", "Node",
+  "TimeRanges", "Node", "ScrollIntoViewOptions", "ScrollBehavior",
 ] }
 
 [workspace]

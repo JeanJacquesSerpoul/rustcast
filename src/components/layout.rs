@@ -74,6 +74,26 @@ pub fn Sidebar() -> impl IntoView {
                 />
             </div>
             <div class="sidebar-foot">
+                <button
+                    class="version-link"
+                    title=move || app.tr("about.title")
+                    on:click=move |_| {
+                        app.go_root(View::Settings);
+                        // Laisse la page s'afficher avant de faire défiler jusqu'à « À propos ».
+                        set_timeout(
+                            || {
+                                if let Some(el) = document().get_element_by_id("about") {
+                                    let opts = web_sys::ScrollIntoViewOptions::new();
+                                    opts.set_behavior(web_sys::ScrollBehavior::Instant);
+                                    el.scroll_into_view_with_scroll_into_view_options(&opts);
+                                }
+                            },
+                            std::time::Duration::from_millis(60),
+                        );
+                    }
+                >
+                    {format!("v{}", crate::util::VERSION)}
+                </button>
                 <div class="segmented small">
                     <button
                         class:active=move || app.lang() == Lang::Fr

@@ -6,7 +6,7 @@ use crate::api;
 use crate::components::common::PageHeader;
 use crate::icons::Icon;
 use crate::state::{app, async_data};
-use crate::util::fmt_bytes_lang;
+use crate::util::{fmt_bytes_lang, release_url, REPO_URL, VERSION};
 
 const SKIPS: [u32; 6] = [5, 10, 15, 30, 45, 60];
 
@@ -145,13 +145,39 @@ pub fn SettingsPage() -> impl IntoView {
                 </div>
             </section>
 
-            <div class="about">
-                <img src="public/logo.svg" alt="" />
-                <div>
-                    <strong>"RustCast 0.1.0"</strong>
-                    <p>{move || app.tr("settings.about")}</p>
+            <section class="settings-group" id="about">
+                <h2>{move || app.tr("about.title")}</h2>
+                <div class="about">
+                    <img src="public/logo.svg" alt="" />
+                    <div class="about-text">
+                        <div class="about-name">
+                            <strong>"RustCast"</strong>
+                            <a class="version-pill" href=release_url() title=move || app.tr("about.release")>
+                                {format!("v{VERSION}")}
+                            </a>
+                        </div>
+                        <p>{move || app.tr("settings.about")}</p>
+                        <div class="about-links">
+                            <a href=REPO_URL>
+                                <Icon name="external" size=14 />
+                                {move || app.tr("about.source")}
+                            </a>
+                            <a href=release_url()>
+                                <Icon name="sparkles" size=14 />
+                                {move || app.tr("about.release")}
+                            </a>
+                            <a href=format!("{REPO_URL}/issues")>
+                                <Icon name="info" size=14 />
+                                {move || app.tr("about.issues")}
+                            </a>
+                            <a href=format!("{REPO_URL}/blob/main/LICENSE")>
+                                <Icon name="notes" size=14 />
+                                {move || app.tr("about.license")}
+                            </a>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </section>
         </div>
     }
 }
