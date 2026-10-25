@@ -1523,7 +1523,7 @@ h3 {
   max-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* Pas d'overflow: hidden ici : il couperait le menu « ⋯ » de l'en-tête. */
   border-radius: 26px;
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
@@ -1541,8 +1541,9 @@ h3 {
   display: flex;
   gap: 24px;
   padding: 28px;
-  overflow: hidden;
   flex-shrink: 0;
+  /* Au-dessus du corps de la fenêtre, pour que le menu ouvert le recouvre. */
+  z-index: 2;
 }
 .modal-bg {
   position: absolute;
@@ -1551,6 +1552,8 @@ h3 {
   background-position: center;
   filter: blur(50px) saturate(1.4);
   opacity: 0.4;
+  /* Rogne l'image floue aux limites de l'en-tête (elle déborde de 40 px pour masquer le flou des bords). */
+  clip-path: inset(40px round 26px 26px 0 0);
 }
 .modal-hero::after {
   content: "";
