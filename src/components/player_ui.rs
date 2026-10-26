@@ -249,6 +249,9 @@ pub fn PlayerBar() -> impl IntoView {
                             <button class="icon-btn" title=move || app.tr("player.expand") on:click=move |_| app.now_playing_open.set(true)>
                                 <Icon name="chevron-up" size=20 />
                             </button>
+                            <button class="icon-btn pb-close" title=move || app.tr("player.close") on:click=move |_| player.close()>
+                                <Icon name="x" size=18 />
+                            </button>
                         </div>
                     </footer>
                 }

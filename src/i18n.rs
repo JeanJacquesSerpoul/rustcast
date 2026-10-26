@@ -88,6 +88,7 @@ const STRINGS: &[(&str, &str, &str)] = &[
     ("player.next", "Épisode suivant", "Next episode"),
     ("player.speed", "Vitesse de lecture", "Playback speed"),
     ("player.expand", "Ouvrir le lecteur", "Open player"),
+    ("player.close", "Fermer le lecteur (la position est conservée)", "Close player (position is kept)"),
     ("player.collapse", "Réduire le lecteur", "Minimize player"),
     ("player.fullscreen", "Plein écran (double-clic sur la vidéo)", "Full screen (double-click the video)"),
     ("player.loading", "Chargement…", "Loading…"),

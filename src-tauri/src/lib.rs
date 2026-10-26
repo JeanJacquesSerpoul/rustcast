@@ -255,7 +255,8 @@ fn set_progress(state: State<AppState>, id: String, position: f64, duration: Opt
                 }
             }
         }
-        l.settings.last_episode = Some(id);
+        // Le dernier épisode écouté est enregistré par l'interface au lancement de la
+        // lecture : le réécrire ici ferait revenir un épisode que l'on vient de fermer.
     });
 }
 

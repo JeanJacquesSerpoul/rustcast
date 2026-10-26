@@ -1825,6 +1825,14 @@ input[type="range"]:hover::-webkit-slider-thumb {
   transform: scale(1);
 }
 
+.pb-close {
+  margin-left: 2px;
+  color: var(--text-3);
+}
+.pb-close:hover {
+  color: var(--danger);
+  background: rgba(251, 113, 133, 0.12);
+}
 .rate-btn {
   min-width: 46px;
   height: 30px;

@@ -30,6 +30,11 @@ export function setMediaMetadata(title, artist, artwork) {
     artwork: artwork ? [{ src: artwork, sizes: '512x512' }] : [],
   });
 }
+export function clearMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = null;
+  navigator.mediaSession.playbackState = 'none';
+}
 export function setMediaPlaying(playing) {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
 }
@@ -73,6 +78,8 @@ extern "C" {
     );
     #[wasm_bindgen(js_name = setMediaMetadata)]
     fn set_media_metadata(title: &str, artist: &str, artwork: Option<String>);
+    #[wasm_bindgen(js_name = clearMediaSession)]
+    fn clear_media_session();
     #[wasm_bindgen(js_name = setMediaPlaying)]
     fn set_media_playing(playing: bool);
     #[wasm_bindgen(js_name = installLinkHandler)]
@@ -392,6 +399,42 @@ impl Player {
         } else {
             self.resume();
         }
+    }
+
+    /// Ferme l'épisode en cours : enregistre la position, arrête la lecture et masque le lecteur.
+    /// L'épisode reste disponible dans « Reprendre l'écoute ».
+    pub fn close(self) {
+        let Some(ep) = self.current.get_untracked() else {
+            return;
+        };
+        let (t, d) = media(|a| (a.current_time(), a.duration()));
+        let duration = d.is_finite().then_some(d);
+        let position = if PENDING_SEEK.get().is_some() { ep.episode.position } else { t };
+        WANTS_PLAY.set(false);
+        PENDING_SEEK.set(None);
+        if is_fullscreen() {
+            self.toggle_fullscreen();
+        }
+        media(|a| {
+            let _ = a.pause();
+            let _ = a.remove_attribute("src");
+            a.load();
+        });
+        clear_media_session();
+        self.current.set(None);
+        self.playing.set(false);
+        self.buffering.set(false);
+        self.has_video.set(false);
+        self.time.set(0.0);
+        self.duration.set(0.0);
+        self.app.now_playing_open.set(false);
+        self.app.update_settings(|s| s.last_episode = None);
+        let app = self.app;
+        spawn_local(async move {
+            let _ = api::set_progress(ep.episode.id, position, duration).await;
+            // Met à jour « Reprendre l'écoute » avec la position enregistrée.
+            app.reload_library().await;
+        });
     }
 
     pub fn toggle_fullscreen(self) {
