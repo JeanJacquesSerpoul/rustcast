@@ -1,6 +1,6 @@
 [package]
 name = "rustcast"
-version = "0.1.1"
+version = "0.1.2"
 description = "RustCast — gestionnaire de podcasts"
 edition = "2021"
 license = "MIT"
