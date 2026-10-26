@@ -5,7 +5,8 @@ use shared::{Lang, Theme};
 use crate::api;
 use crate::components::common::PageHeader;
 use crate::icons::Icon;
-use crate::state::{app, async_data};
+use crate::player::player;
+use crate::state::{app, async_data, ToastKind};
 use crate::util::{fmt_bytes_lang, release_url, REPO_URL, VERSION};
 
 const SKIPS: [u32; 6] = [5, 10, 15, 30, 45, 60];
@@ -33,6 +34,27 @@ pub fn SettingsPage() -> impl IntoView {
         api::storage_info()
     });
     let s = move || app.settings.get();
+    let player = player();
+    let confirm_reset = RwSignal::new(false);
+    let resetting = RwSignal::new(false);
+    let reset = move |_| {
+        resetting.set(true);
+        player.close();
+        spawn_local(async move {
+            match api::reset_app().await {
+                Ok(()) => {
+                    if let Ok(s) = api::get_settings().await {
+                        app.settings.set(s);
+                    }
+                    app.reload_library().await;
+                    app.toast(app.tr("toast.reset"), ToastKind::Success);
+                }
+                Err(e) => app.error(e),
+            }
+            resetting.set(false);
+            confirm_reset.set(false);
+        });
+    };
 
     let skip_select = move |back: bool| {
         view! {
@@ -131,6 +153,28 @@ pub fn SettingsPage() -> impl IntoView {
                     <button class="btn ghost" on:click=move |_| spawn_local(async move { let _ = api::open_data_dir().await; })>
                         {move || app.tr("dl.open_folder")}
                     </button>
+                </Row>
+            </section>
+
+            <section class="settings-group">
+                <h2>{move || app.tr("settings.reset_group")}</h2>
+                <Row icon="refresh" title="settings.reset" desc="settings.reset_desc">
+                    <Show
+                        when=move || confirm_reset.get()
+                        fallback=move || view! {
+                            <button class="btn ghost danger" on:click=move |_| confirm_reset.set(true)>
+                                {move || app.tr("settings.reset_btn")}
+                            </button>
+                        }
+                    >
+                        <button class="btn ghost" on:click=move |_| confirm_reset.set(false)>
+                            {move || app.tr("settings.reset_cancel")}
+                        </button>
+                        <button class="btn danger" class:loading=move || resetting.get() on:click=reset>
+                            <Icon name="trash" size=16 />
+                            {move || app.tr("settings.reset_confirm")}
+                        </button>
+                    </Show>
                 </Row>
             </section>
 

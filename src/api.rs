@@ -151,6 +151,9 @@ pub async fn active_downloads() -> Result<Vec<DownloadProgress>, String> {
 pub async fn storage_info() -> Result<StorageInfo, String> {
     call("storage_info", args!()).await
 }
+pub async fn reset_app() -> Result<(), String> {
+    call("reset_app", args!()).await
+}
 pub async fn open_data_dir() -> Result<(), String> {
     call("open_data_dir", args!()).await
 }

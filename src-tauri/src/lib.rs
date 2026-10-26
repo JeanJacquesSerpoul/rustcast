@@ -398,6 +398,21 @@ fn storage_info(state: State<AppState>) -> StorageInfo {
     }
 }
 
+/// Remet l'application à zéro : abonnements, file d'attente, réglages et téléchargements.
+#[tauri::command(rename_all = "snake_case")]
+fn reset_app(app: AppHandle, state: State<AppState>) {
+    let ids: Vec<String> = state.downloads.lock().unwrap().keys().cloned().collect();
+    for id in ids {
+        downloads::cancel(&app, &id);
+    }
+    state.previews.lock().unwrap().clear();
+    state.store.update(|l| *l = store::Library::default());
+    state.store.flush();
+    // Un téléchargement interrompu supprime lui-même son fichier partiel s'il est encore ouvert.
+    let _ = std::fs::remove_dir_all(state.store.downloads_dir());
+    notify_library(&app);
+}
+
 // ─────────────────────────────── Divers ──────────────────────────────
 
 #[tauri::command(rename_all = "snake_case")]
@@ -615,6 +630,7 @@ pub fn run() {
             reveal_download,
             active_downloads,
             storage_info,
+            reset_app,
             open_external,
             open_data_dir,
             import_opml,
